@@ -1,0 +1,34 @@
+@startuml
+title Review Expense (approve or reject)
+actor Approver
+boundary "Swing Review Screen" as UI
+control "ReviewExpenseController" as Controller
+control "ReviewExpense use case" as UseCase
+participant "ExpenseRepository port" as Expenses
+participant "Authorization / ApprovalPolicy" as Policy
+participant "TransactionManager port" as Tx
+participant "Balance query" as Balances
+
+Approver -> UI : approve or reject step
+UI -> Controller : review decision
+Controller -> UseCase : execute(expenseId, decision, actor)
+UseCase -> Tx : begin
+UseCase -> Expenses : load expense with version
+Expenses --> UseCase : pending expense + steps
+UseCase -> Policy : authorize reviewer and apply decision
+alt all required steps approved
+  Policy --> UseCase : approved
+  UseCase -> Expenses : save approved status
+  note right of UseCase
+    Approved expense becomes eligible
+    for balance calculation in this
+    same local transaction.
+  end note
+else rejected or approval remains pending
+  Policy --> UseCase : rejected / pending
+  UseCase -> Expenses : save decision and status
+end
+UseCase -> Tx : commit
+UseCase --> Controller : new status
+Controller --> UI : render status
+@enduml

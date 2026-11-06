@@ -1,6 +1,6 @@
 # SplitSmart Base System Architecture
 
-**Status:** Initial architecture proposal derived from `UserRequirement.md`, `specs/001-expense-sharing/spec.md`, and the project constitution. The feature specification is a draft; open product questions listed there remain unresolved. This document is a design baseline, not evidence that any feature is implemented.
+**Status:** **Approved architectural baseline** for the initial implementation, as selected in `architecture-review-report.md`. Use a layered modular monolith with Ports and Adapters. The feature specification remains a draft; open product questions listed there remain unresolved. This document is a design baseline, not evidence that any feature is implemented. The microservices proposal in `alternative-architecture.md` is not selected.
 
 ## 1. Goals and scope
 
@@ -12,7 +12,7 @@ The initial desktop MVP candidate covers account access, groups, expense entry/a
 
 ## 2. Architectural style and boundaries
 
-Use a layered, ports-and-adapters design. The domain owns invariants and calculations; application services implement use cases and coordinate ports; adapters implement persistence, notification delivery, and client interfaces. Dependencies point inward: Swing and storage depend on application/domain contracts, while domain code has no dependency on Swing, JDBC, or a database vendor.
+Use a layered modular monolith with Ports and Adapters. The initial deliverable is one desktop application deployment; the Maven modules are compile-time boundaries, not independently deployed services. The domain owns invariants and calculations; application services implement use cases and coordinate ports; infrastructure adapters implement persistence, notification delivery, and receipt storage. Dependencies point inward: Swing and infrastructure depend on application/domain abstractions, while domain code has no dependency on Swing, JDBC, or a database vendor. See `design-and-traceability.md` and PlantUML sources in `diagrams/` for the detailed design.
 
 ```text
 Desktop MVP
@@ -23,7 +23,7 @@ Desktop MVP
                                               |
                                       SQLite/JDBC adapter
 
-Complete product (target boundary)
+Future full product boundary (not implemented)
   Web client ----\
   Android app ----+--> authenticated API --> same application/domain rules
   iOS app --------/                              |
@@ -36,22 +36,18 @@ The desktop MVP can invoke application services in-process and persist locally. 
 
 ## 3. Proposed Maven module structure
 
-Use a Maven parent at the repository root (`pom.xml`) with Java release 21 and centrally managed dependency/plugin versions. The module split is a starting point; it can be collapsed for a small course MVP while retaining package-level boundaries.
+Use a Maven parent at the repository root (`pom.xml`) with `<maven.compiler.release>21</maven.compiler.release>` and centrally managed dependency/plugin versions. Keep the initial reactor small; use package boundaries until separate Maven modules provide a concrete benefit.
 
 ```text
 splitsmart-parent/
-  pom.xml
-  splitsmart-domain/             # Entities/value objects and business rules; no UI/database framework
-  splitsmart-application/        # Use cases, DTOs, ports, authorization decisions
-  splitsmart-adapter-persistence/# JDBC repositories, schema migration, transaction boundary
-  splitsmart-adapter-notification/# In-app/email/push adapters as channels are decided
-  splitsmart-adapter-receipt/    # Receipt metadata and binary storage adapter
-  splitsmart-desktop/            # Java Swing UI and composition root for desktop MVP
-  splitsmart-server/             # Future authenticated API and server composition root
-  splitsmart-contracts/          # Optional API schemas/shared serialization contracts
+  pom.xml                         # Java 21 release; dependency/plugin management
+  splitsmart-domain/              # Entities, Money, policies; no framework dependencies
+  splitsmart-application/         # Use cases, request/results, repository and gateway ports
+  splitsmart-infrastructure/      # SQLite/JDBC repositories, migrations, notification/receipt adapters
+  splitsmart-desktop/             # Swing screens/controllers and application composition root
 ```
 
-Dependency direction: `domain` is standalone; `application` depends on `domain`; adapters depend on `application` and `domain`; `desktop` depends on `application` and adapter implementations; `server` depends on `application` and server-side adapters. Desktop and server are separate composition roots and must not depend on each other. A future web client and Android/iOS apps are independent clients of the server API, not Maven modules unless their chosen toolchains warrant inclusion in the repository.
+Dependency direction: `domain` is standalone; `application` depends on `domain` and owns the ports; `infrastructure` implements those ports and depends on `application`/`domain`; `desktop` depends on `application` and `infrastructure` only at the composition root. The application module must not depend on Swing or concrete database classes. If receipt or notification adapters become substantial, they may be split into modules later with an explicit maintenance benefit. No server module, API gateway, broker, or separately deployed service is part of the initial implementation. A shared authenticated backend/API and web/mobile clients are future possibilities required to satisfy CR-010, and need a separate approved design.
 
 Suggested package areas inside the domain/application: `account`, `group`, `expense`, `approval`, `balance`, `payment`, `notification`, and `report`. Keep authorization checks in application use cases and enforce data scoping in repository queries as defense in depth.
 
@@ -65,7 +61,7 @@ Suggested package areas inside the domain/application: `account`, `group`, `expe
 - `ApprovalPolicy`/`ApprovalStep` represent configured review requirements. Pending or rejected expenses have no balance effect; posting is enabled only when all required steps are approved.
 - `BalanceCalculator` derives pairwise obligations from approved expenses and settled payments. A payer is credited for the full expense while allocations identify each participant's share. Do not treat a materialized balance as the authoritative ledger.
 - `Payment` captures debtor, creditor, amount, and date. Reject a payment above the current amount owed; support partial and full settlement.
-- Use immutable value objects where practical: `Money` (amount plus currency), `EmailAddress`, `ExpenseId`, `GroupId`, and `DateRange`. `Money` wraps `BigDecimal` and applies explicit scale/rounding at currency boundaries.
+- Use immutable value objects where practical: `Money` (amount plus currency), `CurrencyUnit` (code and supported minor-unit scale), `EmailAddress`, `ExpenseId`, `GroupId`, and `DateRange`. Never assume every currency has two decimal places. The supported currency set and mixed-currency behavior remain open product decisions; until decided, a group uses one configured currency as assumed by the spec. Construct `BigDecimal` from validated decimal text (`new BigDecimal(input)`), never from `double` or `float`. Validate entered scale against the selected currency. For positive expense allocations, compute exact shares, take each base share at the currency minor-unit scale with `RoundingMode.DOWN`, then distribute remaining minor units by largest fractional remainder; ties use the displayed participant order. Do not round the expense itself. Any other rounding boundary must name its mode; use `RoundingMode.HALF_EVEN` only for display-only conversions if a conversion is required. Persist exact values as SQL `NUMERIC/DECIMAL` with precision and scale chosen for the supported range, and validate scale before writes. Never use floating-point database types. Display with currency-aware formatting without changing the stored value.
 
 ### Application
 
@@ -151,17 +147,17 @@ The diagram is conceptual: supporting DTOs, authentication/session components, i
 
 ### Desktop MVP
 
-Use SQLite through JDBC for a single-user/local desktop demonstration, with schema migrations and foreign keys enabled. Store normalized records for accounts, groups, memberships/invitations, expenses, allocations, approval steps, payments, and notifications. Persist money as fixed-scale decimal text or an exact integer number of minor currency units plus currency metadata; never use SQL floating-point for money. Define currency precision explicitly. Wrap each use case that changes related records in one database transaction.
+Use SQLite through JDBC for the initial single-desktop MVP, with schema migrations and foreign keys enabled. Store normalized records for accounts, groups, memberships/invitations, expenses, allocations, approval steps, payments, and notifications. Persist amounts as exact `NUMERIC/DECIMAL` or exact decimal text plus currency code; never use SQL floating-point for money. The selected mapping must preserve the original decimal exactly and validate supported scale in domain/application code. Wrap each use case that changes related records in one database transaction. Store receipt files outside relational rows only when receipt support is in the active scope, with metadata and generated opaque identifiers in SQLite.
 
 Store receipt bytes outside relational rows, under generated opaque identifiers; persist metadata (identifier, content type, size, checksum, owning expense) in the database. Validate file type/size and authorization when attaching or retrieving. Back up the database and receipt directory together. Local storage is not a shared multi-client production strategy.
 
-### Complete multi-client product
+### Future shared multi-client product (not initial implementation)
 
-Use a server-managed relational database (for example PostgreSQL) behind the authenticated API. The database is authoritative; transactions atomically save expense, allocations, approval state, payments, and any balance/ledger entries. Preserve an auditable ledger of approved expense postings and payment events. Derive balances from that ledger or maintain a rebuildable balance projection updated in the same transaction. Use optimistic versioning or equivalent concurrency control for reviews and payments to prevent duplicate approval/posting or overpayment under concurrent requests.
+If web, Android, iOS, or multiple simultaneous clients are scheduled, design a shared authenticated API and server-managed relational database (for example PostgreSQL) as a separate approved phase. This backend is not implemented or part of the initial modular monolith. The future database would be authoritative; transactions would atomically save expense, allocations, approval state, payments, and balance/ledger entries. Preserve an auditable ledger and derive balances or maintain a rebuildable projection. Use optimistic versioning or equivalent concurrency control for reviews and payments.
 
-Store receipt images in private object storage and reference them by opaque key. Enforce access through server authorization and short-lived access URLs or a streaming endpoint. Do not store image blobs in the core relational tables. Persist notification records in the database/outbox in the same transaction as the triggering event; a worker delivers external email/push notifications and retries failures. This avoids losing notices between commit and delivery. Channel and delivery guarantees remain open specification questions.
+For that future server, receipt images may use private object storage with opaque keys, and notifications may use an outbox and delivery worker. These are future design options, not current infrastructure commitments. Notification channels and delivery guarantees remain open specification questions.
 
-Use database constraints for uniqueness and referential integrity (including normalized unique verified email), application/domain validation for business rules, and scoped reads for group membership. Passwords must be stored using a modern password hashing scheme; credentials, recovery tokens, receipt content, and personal records must not be logged. Confirm deployment, retention, encryption, and backup requirements before production.
+Use database constraints for uniqueness and referential integrity (including normalized unique verified email), application/domain validation for business rules, and scoped reads for group membership. Passwords must be stored using a modern password hashing scheme; credentials, recovery tokens, receipt content, and personal records must not be logged. Confirm deployment, retention, encryption, and backup requirements before production. SQLite/JDBC is a single-desktop deployment choice, not a multi-user hosting solution.
 
 ## 7. GUI and business logic separation
 
@@ -185,7 +181,7 @@ Swing components may validate simple input shape for immediate feedback, but the
 
 ## 8. Test architecture
 
-Use JUnit 5 in the relevant Maven modules. Domain tests cover equal/percentage allocation, currency precision, largest-remainder tie breaking, payer distinct from participants, approval gating, pairwise balance derivation, and payment bounds. Application tests use in-memory repository/notification/receipt fakes to cover authorization, transaction outcomes, status transitions, and use-case orchestration. Persistence adapter tests verify migrations, constraints, mappings, and transaction rollback against a disposable test database. UI tests should be limited to key navigation/form behavior; do not make GUI tests the only verification of business rules. Add API contract and cross-client consistency checks when the server and other clients are introduced.
+Use JUnit 5. Domain tests cover equal/percentage allocation, supported currency precision, largest-remainder tie breaking, payer distinct from participants, approval gating, pairwise balance derivation, and payment bounds. Application tests use in-memory repository/notification/receipt fakes to cover authorization, transaction outcomes, status transitions, and orchestration. Persistence adapter tests verify migrations, constraints, exact decimal mappings, and transaction rollback against a disposable database. Swing tests cover key navigation and form behavior; business rules are verified without constructing Swing. API contract and cross-client consistency checks belong to a future backend phase.
 
 Tests are prescribed by the project constitution/spec; no tests are run as part of producing this architecture document.
 

@@ -201,6 +201,16 @@ The following is a deliberately limited desktop MVP candidate, derived from cust
 
 The project constitution selects Java 21, Maven, Java Swing, JUnit 5, PlantUML, object-oriented design, separation of GUI and business logic, and `BigDecimal` for money. These are engineering decisions and constraints, not requirements stated by the customer. In particular, selecting Swing for the MVP does not imply that Swing supplies the required primary web product or Android and iOS apps. The specification makes no assumption that a desktop-only implementation fulfills CR-010.
 
+### Approved Architecture Baseline
+
+The selected architecture for the initial implementation is a **layered modular monolith using Ports and Adapters**. It uses Java 21, Maven, Swing, JUnit 5, PlantUML, and `BigDecimal`. The initial desktop deployment is one application process with SQLite/JDBC as a proposed local persistence option. Presentation, application, domain, and infrastructure responsibilities are separated; dependencies point inward, and domain rules do not depend on Swing or persistence APIs. See [`../../docs/base-architecture.md`](../../docs/base-architecture.md) and [`../../docs/design-and-traceability.md`](../../docs/design-and-traceability.md).
+
+The microservices proposal is **not selected** for the initial implementation; it is retained as a future option only in [`../../docs/alternative-architecture.md`](../../docs/alternative-architecture.md). A future authenticated server/API may be needed for the customer's web, Android, and iOS requirements, but it is not part of the initial desktop deployment and needs a separately approved design. The current architecture decision does not waive or satisfy CR-010.
+
+### Proposed Quality Requirements Requiring Owner Review
+
+The existing NFR-001 through NFR-005 remain the specification's current non-functional requirements; numeric response, availability, and consistency targets are planning baselines pending confirmation. Additional concerns are recorded as candidate quality requirements in [`../../docs/design-and-traceability.md`](../../docs/design-and-traceability.md) (QNFR-01 through QNFR-06). They are proposals, not approved changes to the customer requirements. In particular, usability/accessibility baseline, audit/retention policy, backup expectations, and measurable maintainability/extensibility criteria require owner review before they become binding requirements.
+
 ### Key Entities
 
 - **Account**: A person's identity, unique verified email address, password-based login and email recovery, and associated personal expense and balance information.
@@ -271,6 +281,7 @@ The project constitution selects Java 21, Maven, Java Swing, JUnit 5, PlantUML, 
 4. **Platform roadmap**: Is the Java Swing desktop MVP an explicitly accepted interim milestone alongside the web-first and Android/iOS deliverables, or is desktop UI outside the intended product? What release order and minimum feature parity are expected across clients?
 5. **Reports and payment corrections**: Which report parameters beyond date range are required, and how should users correct or handle duplicate payment records?
 6. **Service objectives**: Are the proposed response-time and monthly availability targets acceptable, and what production concurrency or accessibility targets should apply?
+7. **Expense corrections**: May a submitted, pending, approved, or rejected expense be edited, cancelled, or corrected? If so, who may do so, what approval is required, and how should prior balance/history effects be represented?
 
 ## Next Phase Notes
 

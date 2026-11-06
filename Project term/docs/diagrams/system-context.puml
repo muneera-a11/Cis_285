@@ -1,0 +1,22 @@
+@startuml
+title SplitSmart System Context (approved initial scope)
+left to right direction
+actor "Account holder / group member" as User
+actor "Group manager / approver" as Manager
+package "SplitSmart desktop application\nJava 21 modular monolith" as SplitSmart {
+  component "Java Swing UI" as UI
+  component "Application + domain" as Core
+  database "SQLite via JDBC" as DB
+  UI --> Core : commands / queries
+  Core --> DB : repositories
+}
+cloud "Email service (TBD)" as Email
+User --> UI : uses desktop client
+Manager --> UI : manages group / reviews expenses
+Core ..> Email : future adapter only\n(channel not selected)
+note bottom of SplitSmart
+  Web, Android and iOS remain customer requirements.
+  They are not delivered by Swing and need a separately
+  approved shared backend/client design.
+end note
+@enduml

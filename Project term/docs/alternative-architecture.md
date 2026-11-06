@@ -1,7 +1,8 @@
 # SplitSmart Alternative Architecture Proposal
 
-**Proposal:** Java microservices with a Swing desktop client for the proposed desktop MVP.  
-**Status:** Alternative design proposal based on `UserRequirement.md`, `specs/001-expense-sharing/spec.md`, its `checklists/requirements.md`, and `docs/base-architecture.md`. The feature spec is still a draft; its open questions remain unresolved. This proposal describes a design, not implemented or accepted functionality.
+**Status: NOT SELECTED for the current implementation.** The project has adopted [`base-architecture.md`](base-architecture.md): a layered modular monolith using Ports and Adapters. This microservices design is retained as historical/future evaluation material and may be reconsidered only if future requirements justify independently deployed services. It is not the primary system architecture, an implementation plan, or evidence that these services exist. The feature spec remains Draft and its open product questions remain unresolved.
+
+> **Decision boundary:** Do not introduce the service decomposition, API gateway, message broker, independently deployed services, or service-owned databases described below into the initial implementation. The current design is documented in [`design-and-traceability.md`](design-and-traceability.md) and [`diagrams/`](diagrams/).
 
 ## 1. Purpose and architecture choice
 

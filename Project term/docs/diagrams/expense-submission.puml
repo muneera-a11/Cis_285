@@ -1,0 +1,26 @@
+@startuml
+title Submit Expense (single application process)
+actor Submitter
+boundary "Swing Expense Form" as UI
+control "SubmitExpenseController" as Controller
+control "SubmitExpense use case" as UseCase
+participant "GroupRepository port" as Groups
+participant "AllocationPolicy" as Allocation
+participant "ExpenseRepository port" as Expenses
+participant "TransactionManager port" as Tx
+participant "NotificationPort" as Notification
+
+Submitter -> UI : enter details, payer, participants, split
+UI -> Controller : submit form values
+Controller -> UseCase : execute(command, actor)
+UseCase -> Groups : load active group and membership
+Groups --> UseCase : group / membership
+UseCase -> Allocation : validate and calculate exact shares
+Allocation --> UseCase : allocations or validation error
+UseCase -> Tx : begin
+UseCase -> Expenses : save pending expense + allocations
+UseCase -> Tx : commit
+UseCase -> Notification : expense submitted (if enabled)
+UseCase --> Controller : submission result / errors
+Controller --> UI : show pending status or field errors
+@enduml

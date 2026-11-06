@@ -1,0 +1,62 @@
+@startuml
+title SplitSmart Core Domain and Application Ports
+skinparam classAttributeIconSize 0
+package "domain" {
+  class Account
+  class ExpenseGroup
+  class Membership
+  class Expense
+  class Allocation
+  class ApprovalStep
+  class Payment
+  class Money
+  class CurrencyUnit
+  interface AllocationPolicy
+  class BalanceCalculator
+  Account "1" -- "0..*" Membership
+  ExpenseGroup "1" -- "0..*" Membership
+  ExpenseGroup "1" -- "0..*" Expense
+  Expense "1" *-- "1..*" Allocation
+  Expense "1" *-- "0..*" ApprovalStep
+  Expense --> "1" Account : submitted by
+  Expense --> "1" Account : paid by
+  Allocation --> "1" Account : participant
+  Payment --> "1" Account : debtor
+  Payment --> "1" Account : creditor
+  Money --> CurrencyUnit
+  Expense --> Money
+  Allocation --> Money
+  Payment --> Money
+  AllocationPolicy ..> Allocation : calculates
+  BalanceCalculator ..> Expense : approved only
+  BalanceCalculator ..> Payment : subtracts
+}
+package "application" {
+  class SubmitExpense
+  class ReviewExpense
+  class GetGroupBalances
+  class RecordPayment
+  interface ExpenseRepository
+  interface GroupRepository
+  interface PaymentRepository
+  interface TransactionManager
+  interface NotificationPort
+  interface ReceiptStore
+  SubmitExpense ..> ExpenseRepository
+  SubmitExpense ..> GroupRepository
+  SubmitExpense ..> AllocationPolicy
+  SubmitExpense ..> TransactionManager
+  SubmitExpense ..> NotificationPort
+  SubmitExpense ..> ReceiptStore
+  ReviewExpense ..> ExpenseRepository
+  ReviewExpense ..> TransactionManager
+  GetGroupBalances ..> ExpenseRepository
+  GetGroupBalances ..> PaymentRepository
+  RecordPayment ..> PaymentRepository
+  RecordPayment ..> TransactionManager
+}
+note bottom of Expense
+  payer is exactly one group member;
+  payer may be outside participant set.
+end note
+@enduml

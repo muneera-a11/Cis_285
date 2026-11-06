@@ -1,0 +1,31 @@
+@startuml
+title Record Settlement Payment
+actor Debtor
+boundary "Swing Payment Form" as UI
+control "RecordPaymentController" as Controller
+control "RecordPayment use case" as UseCase
+participant "GroupRepository port" as Groups
+participant "BalanceCalculator" as Calculator
+participant "PaymentRepository port" as Payments
+participant "TransactionManager port" as Tx
+
+Debtor -> UI : enter creditor, amount, date
+UI -> Controller : submit payment
+Controller -> UseCase : execute(command, actor)
+UseCase -> Tx : begin
+UseCase -> Groups : verify group access
+Groups --> UseCase : authorized
+UseCase -> Payments : load relevant expense/payment history
+Payments --> UseCase : transaction history
+UseCase -> Calculator : calculate current outstanding amount
+Calculator --> UseCase : current debt
+alt payment <= amount owed and positive
+  UseCase -> Payments : save payment record
+  UseCase -> Tx : commit
+  UseCase --> Controller : updated balance/result
+else invalid or overpayment
+  UseCase -> Tx : rollback
+  UseCase --> Controller : validation error
+end
+Controller --> UI : show result or correction
+@enduml

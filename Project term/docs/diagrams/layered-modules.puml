@@ -1,0 +1,41 @@
+@startuml
+title SplitSmart Layered Modular Monolith and Maven Dependencies
+skinparam componentStyle rectangle
+package "splitsmart-desktop" {
+  [Swing screens / dialogs] as Swing
+  [Controllers / presenters] as Controllers
+  [Composition root] as Bootstrap
+}
+package "splitsmart-application" {
+  [Use cases] as UseCases
+  [Repository and gateway ports] as Ports
+}
+package "splitsmart-domain" {
+  [Entities and value objects] as Domain
+  [Allocation / approval / balance policies] as Policies
+}
+package "splitsmart-infrastructure" {
+  [JDBC repositories / migrations] as JDBC
+  [Notification / receipt adapters] as Adapters
+}
+database "SQLite" as DB
+Swing --> Controllers
+Controllers --> UseCases : commands / results
+UseCases --> Domain
+UseCases --> Ports : calls abstractions
+Policies --> Domain
+JDBC ..|> Ports
+Adapters ..|> Ports
+Bootstrap --> UseCases : wires
+Bootstrap --> JDBC : wires
+Bootstrap --> Adapters : wires
+JDBC --> DB
+note right of Domain
+  No dependency on Swing,
+  JDBC or vendor APIs.
+end note
+note bottom
+  One application deployment. Modules are code boundaries,
+  not independently deployed services.
+end note
+@enduml

@@ -1,0 +1,25 @@
+@startuml
+title Retrieve Group Balances
+actor "Authorized group member" as Member
+boundary "Swing Balance Screen" as UI
+control "BalanceController" as Controller
+control "GetGroupBalances use case" as UseCase
+participant "GroupRepository port" as Groups
+participant "ExpenseRepository port" as Expenses
+participant "PaymentRepository port" as Payments
+participant "BalanceCalculator" as Calculator
+
+Member -> UI : open group balances
+UI -> Controller : request(groupId)
+Controller -> UseCase : execute(groupId, actor)
+UseCase -> Groups : verify current access
+Groups --> UseCase : authorized membership
+UseCase -> Expenses : find approved expenses for group
+Expenses --> UseCase : approved expenses
+UseCase -> Payments : find recorded payments for group
+Payments --> UseCase : payments
+UseCase -> Calculator : derive pairwise obligations
+Calculator --> UseCase : balances
+UseCase --> Controller : authorized balance view
+Controller --> UI : display balances
+@enduml

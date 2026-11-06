@@ -29,10 +29,16 @@
 - [x] Measurable outcomes cover functional accuracy, performance, usability, and required platform coverage.
 - [x] Implementation decisions do not replace or masquerade as customer requirements.
 - [x] The desktop-only MVP is explicitly not represented as satisfying the complete platform requirement.
+- [x] The selected layered modular-monolith architecture is identified separately from customer requirements.
+- [x] The microservices alternative is explicitly marked as not selected for the initial implementation.
+- [x] Requirements have a linked design/use-case/test traceability matrix.
+- [x] Monetary scale is currency-specific; no universal two-decimal assumption or floating-point money is used in the design.
 
 ## Notes
 
 - Open questions remain for customer/product decisions; assumptions are stated so the specification remains testable pending those decisions.
 - Amount validation, percentage totals, rounding, authentication, membership handling, payer identity, and partial/full settlement rules are confirmed in the clarification record.
 - Notification channels, currency support, approval permissions, platform roadmap, report parameters, payment corrections, and service targets remain open for follow-up.
-- Before `/speckit-plan`, confirm the MVP boundary and remaining product decisions.
+- Proposed usability/accessibility, audit/retention, backup, and extensibility quality requirements are not approved requirements; see `../../../docs/design-and-traceability.md`.
+- The checklist checks specification/document structure only. It does not claim code, tests, diagram rendering, or requirements acceptance.
+- Before implementation planning, confirm the MVP boundary and remaining product decisions.

@@ -1,0 +1,24 @@
+@startuml
+title Retrieve Group and Expense Information for Swing
+actor "Authenticated member" as Member
+boundary "Swing Group Screen" as UI
+control "GroupController" as Controller
+control "GetGroupDetails use case" as UseCase
+participant "GroupRepository port" as Groups
+participant "ExpenseRepository port" as Expenses
+
+Member -> UI : open group / expenses
+UI -> Controller : load(groupId, filters)
+Controller -> UseCase : execute(query, actor)
+UseCase -> Groups : load group and verify active membership
+Groups --> UseCase : group/membership or access denied
+alt authorized
+  UseCase -> Expenses : find scoped expenses(groupId, filters)
+  Expenses --> UseCase : authorized expense summaries
+  UseCase --> Controller : group view model + summaries
+  Controller --> UI : render group and expense list
+else unauthorized or missing
+  UseCase --> Controller : typed not-found/forbidden result
+  Controller --> UI : show safe message
+end
+@enduml
